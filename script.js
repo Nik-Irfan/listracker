@@ -8,6 +8,9 @@ class TodoApp {
         this.currentCategory = 'general';
         this.selectedColor = '#6366f1';
         this.currentTheme = 'purple';
+        this.deleteMode = false;
+        this.barChart = null;
+        this.pieChart = null;
         
         this.initializeElements();
         this.attachEventListeners();
@@ -21,6 +24,7 @@ class TodoApp {
         this.addBtn = document.getElementById('addBtn');
         this.todoList = document.getElementById('todoList');
         this.emptyState = document.getElementById('emptyState');
+        this.filterButtons = document.querySelectorAll('.filter-btn');
         this.categorySelect = document.getElementById('categorySelect');
         this.categoryFilterSelect = document.getElementById('categoryFilterSelect');
         this.addCategoryBtn = document.getElementById('addCategoryBtn');
@@ -28,97 +32,163 @@ class TodoApp {
         this.categoryNameInput = document.getElementById('categoryNameInput');
         this.saveCategoryBtn = document.getElementById('saveCategoryBtn');
         this.cancelCategoryBtn = document.getElementById('cancelCategoryBtn');
-        this.clearCompletedBtn = document.getElementById('clearCompleted');
         this.completedCount = document.getElementById('completedCount');
-        this.filterButtons = document.querySelectorAll('.filter-btn');
         
-        // Settings elements
+        // Edit controls
+        this.editBtn = document.getElementById('editBtn');
+        this.editControls = document.getElementById('editControls');
         this.settingsBtn = document.getElementById('settingsBtn');
+        this.deleteModeBtn = document.getElementById('deleteModeBtn');
+        this.cancelEditBtn = document.getElementById('cancelEditBtn');
+        
+        // Settings page elements
         this.settingsPage = document.getElementById('settingsPage');
         this.backBtn = document.getElementById('backBtn');
-        this.themeOptions = document.querySelectorAll('.theme-option');
         this.settingsCategoryList = document.getElementById('settingsCategoryList');
-        this.exportDataBtn = document.getElementById('exportData');
+        this.themeOptions = document.querySelectorAll('.theme-option');
+        this.exportDataBtn = document.getElementById('exportDataBtn');
         this.generateTestDataBtn = document.getElementById('generateTestData');
-        this.clearAllDataBtn = document.getElementById('clearAllData');
+        this.clearAllDataBtn = document.getElementById('clearAllDataBtn');
         this.confirmModal = document.getElementById('confirmModal');
-        this.confirmMessage = document.getElementById('confirmMessage');
         this.cancelConfirmBtn = document.getElementById('cancelConfirmBtn');
-        this.confirmActionBtn = document.getElementById('confirmActionBtn');
+        this.confirmClearBtn = document.getElementById('confirmClearBtn');
+        
+        // Stats elements
+        this.completedCount = document.getElementById('completedCount');
+        this.activeCount = document.getElementById('activeCount');
+        
+        // Dashboard elements
+        this.dashboardBtn = document.getElementById('dashboardBtn');
+        this.dashboardPage = document.getElementById('dashboardPage');
+        this.backToMainBtn = document.getElementById('backToMainBtn');
+        this.dashboardCompletedCount = document.getElementById('dashboardCompletedCount');
+        this.dashboardActiveCount = document.getElementById('dashboardActiveCount');
+        this.dashboardTotalCount = document.getElementById('dashboardTotalCount');
+        this.dashboardCategoriesCount = document.getElementById('dashboardCategoriesCount');
+        this.barChartCanvas = document.getElementById('barChart');
+        this.pieChartCanvas = document.getElementById('pieChart');
     }
 
     attachEventListeners() {
-        this.addBtn.addEventListener('click', () => this.addTodo());
-        this.todoInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.addTodo();
-        });
-
-        this.filterButtons.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                this.filterButtons.forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                this.currentFilter = e.target.dataset.filter;
-                this.render();
+        // Add null checks for all elements
+        if (this.addBtn) this.addBtn.addEventListener('click', () => this.addTodo());
+        if (this.todoInput) {
+            this.todoInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.addTodo();
             });
-        });
+        }
+
+        if (this.filterButtons) {
+            this.filterButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    this.filterButtons.forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    this.currentFilter = e.target.dataset.filter;
+                    this.render();
+                });
+            });
+        }
 
         // Category filter listener
-        this.categoryFilterSelect.addEventListener('change', (e) => {
-            this.currentCategory = e.target.value;
-            this.render();
-        });
-
-        this.addCategoryBtn.addEventListener('click', () => this.openCategoryModal());
-        this.saveCategoryBtn.addEventListener('click', () => this.saveCategory());
-        this.cancelCategoryBtn.addEventListener('click', () => this.closeCategoryModal());
-        this.clearCompletedBtn.addEventListener('click', () => this.clearCompleted());
-
-        // Settings event listeners
-        this.settingsBtn.addEventListener('click', () => this.openSettings());
-        this.backBtn.addEventListener('click', () => this.closeSettings());
-        
-        this.themeOptions.forEach(option => {
-            option.addEventListener('click', (e) => {
-                this.themeOptions.forEach(o => o.classList.remove('active'));
-                e.currentTarget.classList.add('active');
-                this.changeTheme(e.currentTarget.dataset.theme);
+        if (this.categoryFilterSelect) {
+            this.categoryFilterSelect.addEventListener('change', (e) => {
+                this.currentCategory = e.target.value;
+                this.render();
             });
-        });
-        
-        this.exportDataBtn.addEventListener('click', () => this.exportData());
-        this.generateTestDataBtn.addEventListener('click', () => this.generateTestData());
-        this.clearAllDataBtn.addEventListener('click', () => this.confirmClearAllData());
-        this.cancelConfirmBtn.addEventListener('click', () => this.closeConfirmModal());
-        
-        this.categoryModal.addEventListener('click', (e) => {
-            if (e.target === this.categoryModal) {
-                this.closeCategoryModal();
-            }
-        });
-        
-        this.confirmModal.addEventListener('click', (e) => {
-            if (e.target === this.confirmModal) {
-                this.closeConfirmModal();
-            }
-        });
+        }
 
-        document.querySelectorAll('.color-option').forEach(option => {
-            option.addEventListener('click', (e) => {
-                document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
-                e.target.classList.add('selected');
-                this.selectedColor = e.target.dataset.color;
+        if (this.addCategoryBtn) this.addCategoryBtn.addEventListener('click', () => this.openCategoryModal());
+        if (this.saveCategoryBtn) this.saveCategoryBtn.addEventListener('click', () => this.saveCategory());
+        if (this.cancelCategoryBtn) this.cancelCategoryBtn.addEventListener('click', () => this.closeCategoryModal());
+
+        // Edit controls event listeners
+        if (this.editBtn) this.editBtn.addEventListener('click', () => this.showEditControls());
+        if (this.deleteModeBtn) this.deleteModeBtn.addEventListener('click', () => this.toggleDeleteMode());
+        if (this.cancelEditBtn) this.cancelEditBtn.addEventListener('click', () => this.hideEditControls());
+
+        // Settings page event listeners
+        if (this.settingsBtn) this.settingsBtn.addEventListener('click', () => this.openSettings());
+        if (this.backBtn) this.backBtn.addEventListener('click', () => this.closeSettings());
+        
+        // Dashboard event listeners
+        if (this.dashboardBtn) this.dashboardBtn.addEventListener('click', () => this.openDashboard());
+        if (this.backToMainBtn) this.backToMainBtn.addEventListener('click', () => this.closeDashboard());
+        
+        if (this.themeOptions) {
+            this.themeOptions.forEach(option => {
+                option.addEventListener('click', (e) => {
+                    this.themeOptions.forEach(o => o.classList.remove('active'));
+                    e.currentTarget.classList.add('active');
+                    this.changeTheme(e.currentTarget.dataset.theme);
+                });
             });
-        });
+        }
+        
+        if (this.exportDataBtn) this.exportDataBtn.addEventListener('click', () => this.exportData());
+        if (this.generateTestDataBtn) {
+            console.log('Generate test data button found:', this.generateTestDataBtn);
+            this.generateTestDataBtn.addEventListener('click', () => {
+                console.log('Generate test data button clicked');
+                this.generateTestData();
+            });
+        }
+        if (this.clearAllDataBtn) this.clearAllDataBtn.addEventListener('click', () => this.confirmClearAllData());
+        if (this.cancelConfirmBtn) this.cancelConfirmBtn.addEventListener('click', () => this.closeConfirmModal());
+        
+        if (this.categoryModal) {
+            this.categoryModal.addEventListener('click', (e) => {
+                if (e.target === this.categoryModal) {
+                    this.closeCategoryModal();
+                }
+            });
+        }
+        
+        if (this.confirmModal) {
+            this.confirmModal.addEventListener('click', (e) => {
+                if (e.target === this.confirmModal) {
+                    this.closeConfirmModal();
+                }
+            });
+        }
 
-        // Todo list event listener (moved outside render to prevent duplicate listeners)
-        this.todoList.addEventListener('click', (e) => {
-            // Only handle delete button clicks here
-            if (e.target.closest('.delete-btn')) {
-                const id = e.target.closest('.delete-btn').dataset.id;
-                this.deleteTodo(id);
-            }
-            // Todo completion is now handled in the drag listeners
-        });
+        if (document.querySelectorAll('.color-option')) {
+            document.querySelectorAll('.color-option').forEach(option => {
+                option.addEventListener('click', (e) => {
+                    document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+                    e.target.classList.add('selected');
+                    this.selectedColor = e.target.dataset.color;
+                });
+            });
+        }
+
+        // Todo list event listener
+        if (this.todoList) {
+            this.todoList.addEventListener('click', (e) => {
+                const todoItem = e.target.closest('.todo-item');
+                console.log('Click event on todoList, target:', e.target);
+                console.log('Todo clicked:', todoItem);
+                console.log('Delete mode:', this.deleteMode);
+                
+                if (this.deleteMode && todoItem) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const todoId = todoItem.dataset.id;
+                    console.log('Attempting to delete todo with ID:', todoId);
+                    this.deleteTodo(todoId);
+                } else if (todoItem && !this.deleteMode) {
+                    // Click on todo item to toggle completion
+                    this.toggleTodo(todoItem.dataset.id);
+                }
+            });
+            
+            // Also add click listener to each todo item during render
+            this.todoList.addEventListener('mousedown', (e) => {
+                const todoItem = e.target.closest('.todo-item');
+                console.log('Mousedown on todoList, target:', e.target);
+                console.log('Todo item found:', todoItem);
+                console.log('Delete mode on mousedown:', this.deleteMode);
+            });
+        }
     }
 
     addTodo() {
@@ -156,7 +226,13 @@ class TodoApp {
     }
 
     deleteTodo(id) {
+        console.log('Deleting todo with ID:', id);
+        console.log('Current todos before delete:', this.todos);
+        
         this.todos = this.todos.filter(t => t.id !== id);
+        
+        console.log('Current todos after delete:', this.todos);
+        
         this.saveToStorage();
         this.render();
     }
@@ -258,15 +334,46 @@ class TodoApp {
         return this.todos.filter(todo => todo.categoryId === categoryId).length;
     }
 
-    clearCompleted() {
-        this.todos = this.todos.filter(todo => !todo.completed);
-        this.saveToStorage();
+    showEditControls() {
+        this.editBtn.style.display = 'none';
+        this.editControls.style.display = 'flex';
+    }
+
+    hideEditControls() {
+        this.editBtn.style.display = 'block';
+        this.editControls.style.display = 'none';
+        this.deleteMode = false;
+        this.deleteModeBtn.textContent = 'Delete Mode';
+        this.deleteModeBtn.classList.remove('active');
+    }
+
+    toggleDeleteMode() {
+        console.log('Toggling delete mode, current state:', this.deleteMode);
+        this.deleteMode = !this.deleteMode;
+        console.log('New delete mode state:', this.deleteMode);
+        
+        if (this.deleteMode) {
+            this.deleteModeBtn.textContent = 'Exit Delete Mode';
+            this.deleteModeBtn.classList.add('active');
+            this.todoList.style.cursor = 'pointer';
+            console.log('Delete mode activated');
+        } else {
+            this.deleteModeBtn.textContent = 'Delete Mode';
+            this.deleteModeBtn.classList.remove('active');
+            this.todoList.style.cursor = 'move';
+            console.log('Delete mode deactivated');
+        }
+        
+        // Re-render to update todo item classes
         this.render();
     }
 
     updateStats() {
         const completed = this.todos.filter(todo => todo.completed).length;
-        this.completedCount.textContent = completed;
+        const active = this.todos.filter(todo => !todo.completed).length;
+        
+        if (this.completedCount) this.completedCount.textContent = completed;
+        if (this.activeCount) this.activeCount.textContent = active;
     }
 
     render() {
@@ -284,8 +391,8 @@ class TodoApp {
             filteredTodos.forEach((todo, index) => {
                 const category = this.categories.find(c => c.id === todo.categoryId);
                 const todoItem = document.createElement('li');
-                todoItem.className = `todo-item ${todo.completed ? 'completed' : ''}`;
-                todoItem.draggable = true;
+                todoItem.className = `todo-item ${todo.completed ? 'completed' : ''} ${this.deleteMode ? 'delete-mode' : ''}`;
+                todoItem.draggable = !this.deleteMode;
                 todoItem.dataset.id = todo.id;
                 todoItem.dataset.index = index;
                 todoItem.innerHTML = `
@@ -299,23 +406,32 @@ class TodoApp {
                             <div class="todo-date">${this.formatDate(todo.createdAt)}</div>
                         </div>
                     </div>
-                    <div class="todo-actions">
-                        <button class="todo-btn delete-btn" data-id="${todo.id}">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                <path d="M2 4h12M5 4V2.5C5 2.22386 5.22386 2 5.5 2h5c.27614 0 .5.22386.5.5V4m2 0v9.5c0 .2761-.2239.5-.5.5h-9c-.27614 0-.5-.2239-.5-.5V4h10z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </button>
-                    </div>
                 `;
                 this.todoList.appendChild(todoItem);
                 
-                // Add drag and drop event listeners
-                this.addDragAndDropListeners(todoItem);
+                // Always add click listener for delete mode detection
+                todoItem.addEventListener('click', (e) => {
+                    console.log('Todo item clicked directly, delete mode:', this.deleteMode);
+                    if (this.deleteMode) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const todoId = todoItem.dataset.id;
+                        console.log('Deleting todo with ID:', todoId);
+                        this.deleteTodo(todoId);
+                    } else {
+                        // Normal click to toggle completion
+                        this.toggleTodo(todoItem.dataset.id);
+                    }
+                });
+                
+                // Add drag and drop event listeners only if not in delete mode
+                if (!this.deleteMode) {
+                    this.addDragAndDropListeners(todoItem);
+                }
             });
         }
         
         this.updateCategoryUI();
-        this.updateStats();
     }
 
     addDragAndDropListeners(todoItem) {
@@ -397,6 +513,8 @@ class TodoApp {
     }
 
     reorderTodos(fromIndex, toIndex) {
+        console.log('Reordering from', fromIndex, 'to', toIndex);
+        
         const filteredTodos = this.getFilteredTodos();
         const draggedTodo = filteredTodos[fromIndex];
         
@@ -413,14 +531,18 @@ class TodoApp {
         
         // Find the target position in main array
         let toActualIndex;
-        if (toIndex >= filteredTodos.length - 1) {
+        if (toIndex >= filteredTodos.length) {
             // Moving to the end
             toActualIndex = this.todos.length;
         } else {
             // Find the todo at the drop position
-            const targetTodo = filteredTodos[toIndex + (fromIndex < toIndex ? 1 : -1)];
+            const targetTodo = filteredTodos[toIndex];
             if (targetTodo) {
                 toActualIndex = this.todos.findIndex(t => t.id === targetTodo.id);
+                // If dragging forward, insert after target; if backward, insert before target
+                if (fromIndex < toIndex) {
+                    toActualIndex += 1;
+                }
             } else {
                 toActualIndex = this.todos.length;
             }
@@ -428,6 +550,8 @@ class TodoApp {
         
         // Insert at new position
         this.todos.splice(toActualIndex, 0, draggedTodo);
+        
+        console.log('Reordered todos:', this.todos.map(t => t.text));
         
         // Don't sort - maintain the manual order
         // this.sortTodos();
@@ -521,6 +645,11 @@ class TodoApp {
     }
 
     renderSettingsCategories() {
+        if (!this.settingsCategoryList) {
+            console.log('settingsCategoryList element not found');
+            return;
+        }
+        
         this.settingsCategoryList.innerHTML = '';
         
         this.categories.forEach(category => {
@@ -543,6 +672,7 @@ class TodoApp {
             this.settingsCategoryList.appendChild(categoryItem);
         });
         
+        // Add event listener for delete buttons
         this.settingsCategoryList.addEventListener('click', (e) => {
             if (e.target.closest('.delete-category-btn')) {
                 const categoryId = e.target.closest('.delete-category-btn').dataset.id;
@@ -614,6 +744,8 @@ class TodoApp {
     }
 
     generateTestData() {
+        console.log('generateTestData function called');
+        
         // Add test categories first
         const testCategories = [
             { id: 'work', name: 'Work', color: '#10b981' },
@@ -741,6 +873,156 @@ class TodoApp {
             categories: this.categories,
             todos: this.todos,
             filteredCount: this.getFilteredTodos().length
+        });
+    }
+
+    // Dashboard methods
+    openDashboard() {
+        this.dashboardPage.classList.add('active');
+        this.updateDashboardStats();
+        this.renderCharts();
+    }
+
+    closeDashboard() {
+        this.dashboardPage.classList.remove('active');
+        // Destroy charts to free memory
+        if (this.barChart) {
+            this.barChart.destroy();
+            this.barChart = null;
+        }
+        if (this.pieChart) {
+            this.pieChart.destroy();
+            this.pieChart = null;
+        }
+    }
+
+    updateDashboardStats() {
+        const completed = this.todos.filter(todo => todo.completed).length;
+        const active = this.todos.filter(todo => !todo.completed).length;
+        const total = this.todos.length;
+        const categories = this.categories.length;
+        
+        if (this.dashboardCompletedCount) this.dashboardCompletedCount.textContent = completed;
+        if (this.dashboardActiveCount) this.dashboardActiveCount.textContent = active;
+        if (this.dashboardTotalCount) this.dashboardTotalCount.textContent = total;
+        if (this.dashboardCategoriesCount) this.dashboardCategoriesCount.textContent = categories;
+    }
+
+    renderCharts() {
+        this.renderBarChart();
+        this.renderPieChart();
+    }
+
+    renderBarChart() {
+        const ctx = this.barChartCanvas.getContext('2d');
+        
+        // Prepare data for bar chart
+        const categoryLabels = this.categories.map(cat => cat.name);
+        const completedData = this.categories.map(cat => 
+            this.todos.filter(todo => todo.categoryId === cat.id && todo.completed).length
+        );
+        const activeData = this.categories.map(cat => 
+            this.todos.filter(todo => todo.categoryId === cat.id && !todo.completed).length
+        );
+        
+        // Destroy existing chart if it exists
+        if (this.barChart) {
+            this.barChart.destroy();
+        }
+        
+        this.barChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: categoryLabels,
+                datasets: [
+                    {
+                        label: 'Completed',
+                        data: completedData,
+                        backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                        borderColor: 'rgba(34, 197, 94, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Active',
+                        data: activeData,
+                        backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: false
+                    }
+                }
+            }
+        });
+    }
+
+    renderPieChart() {
+        const ctx = this.pieChartCanvas.getContext('2d');
+        
+        // Prepare data for pie chart
+        const categoryData = this.categories.map(cat => 
+            this.todos.filter(todo => todo.categoryId === cat.id).length
+        );
+        const categoryLabels = this.categories.map(cat => cat.name);
+        const categoryColors = this.categories.map(cat => cat.color);
+        
+        // Destroy existing chart if it exists
+        if (this.pieChart) {
+            this.pieChart.destroy();
+        }
+        
+        this.pieChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: categoryLabels,
+                datasets: [{
+                    data: categoryData,
+                    backgroundColor: categoryColors,
+                    borderColor: '#ffffff',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    },
+                    title: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
         });
     }
 }
