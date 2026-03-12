@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal Todo</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-top">
+                <h1 class="title">My Tasks</h1>
+                <button id="settingsBtn" class="settings-btn">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 15a3 3 0 100-6 3 3 0 000 6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="header-stats">
+                <span id="completedCount">0</span> completed
+            </div>
+        </header>
+
+        <main class="main-content">
+            <section class="input-section">
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        id="todoInput" 
+                        placeholder="What needs to be done?"
+                        class="todo-input"
+                    >
+                    <select id="categorySelect" class="category-select">
+                        <option value="general">General</option>
+                    </select>
+                    <button id="addBtn" class="add-btn">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M10 5V15M5 10H15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                </div>
+            </section>
+
+            <section class="filter-section">
+                <div class="category-filter">
+                    <select id="categoryFilterSelect" class="category-filter-select">
+                        <option value="all">All Categories</option>
+                    </select>
+                </div>
+                <div class="filter-buttons">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="active">Active</button>
+                    <button class="filter-btn" data-filter="completed">Completed</button>
+                </div>
+            </section>
+
+            <section class="todo-section">
+                <ul id="todoList" class="todo-list">
+                    <!-- Todos will be dynamically added here -->
+                </ul>
+                <div id="emptyState" class="empty-state">
+                    <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                        <circle cx="40" cy="40" r="40" fill="#f3f4f6"/>
+                        <path d="M40 25V55M25 40H55" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <p>No tasks yet. Add one above!</p>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <button id="clearCompleted" class="clear-btn">Clear Completed</button>
+        </footer>
+    </div>
+
+    <!-- Settings Page -->
+    <div id="settingsPage" class="settings-page">
+        <div class="settings-header">
+            <button id="backBtn" class="back-btn">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M15 10H5M5 10L10 15M5 10L10 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+            <h2>Settings</h2>
+        </div>
+        
+        <div class="settings-content">
+            <section class="settings-section">
+                <h3>Theme Color</h3>
+                <div class="theme-options">
+                    <button class="theme-option active" data-theme="purple">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
+                        <span>Purple</span>
+                    </button>
+                    <button class="theme-option" data-theme="blue">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);"></div>
+                        <span>Blue</span>
+                    </button>
+                    <button class="theme-option" data-theme="green">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);"></div>
+                        <span>Green</span>
+                    </button>
+                    <button class="theme-option" data-theme="orange">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);"></div>
+                        <span>Orange</span>
+                    </button>
+                    <button class="theme-option" data-theme="pink">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #E91E63 0%, #C2185B 100%);"></div>
+                        <span>Pink</span>
+                    </button>
+                    <button class="theme-option" data-theme="dark">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);"></div>
+                        <span>Dark</span>
+                    </button>
+                </div>
+            </section>
+
+            <section class="settings-section">
+                <h3>Categories</h3>
+                <div id="settingsCategoryList" class="settings-category-list">
+                    <!-- Categories will be dynamically added here -->
+                </div>
+                <button id="addCategoryBtn" class="add-category-btn">+ Add New Category</button>
+            </section>
+
+            <section class="settings-section">
+                <h3>Data Management</h3>
+                <div class="data-actions">
+                    <button id="generateTestData" class="data-btn test">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M13 10H3M13 10l4-4m-4 4l4 4M10 17V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Generate Test Data
+                    </button>
+                    <button id="exportData" class="data-btn export">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M3 17v1a1 1 0 001 1h12a1 1 0 001-1v-1M8 11l4 4m0 0l4-4m-4 4V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Export Data
+                    </button>
+                    <button id="clearAllData" class="data-btn clear-all">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H3.862a2 2 0 01-1.995-1.858L1 7m4-4h10M4 3V1a1 1 0 011-1h10a1 1 0 011 1v2m-9 5v8m4-8v8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Clear All Data
+                    </button>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Category Modal -->
+    <div id="categoryModal" class="modal">
+        <div class="modal-content">
+            <h3>Create Category</h3>
+            <input 
+                type="text" 
+                id="categoryNameInput" 
+                placeholder="Category name"
+                class="modal-input"
+            >
+            <div class="color-picker">
+                <div class="color-option" data-color="#6366f1"></div>
+                <div class="color-option" data-color="#10b981"></div>
+                <div class="color-option" data-color="#f59e0b"></div>
+                <div class="color-option" data-color="#ef4444"></div>
+                <div class="color-option" data-color="#8b5cf6"></div>
+                <div class="color-option" data-color="#06b6d4"></div>
+            </div>
+            <div class="modal-buttons">
+                <button id="cancelCategoryBtn" class="modal-btn cancel">Cancel</button>
+                <button id="saveCategoryBtn" class="modal-btn save">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <h3>Confirm Action</h3>
+            <p id="confirmMessage">Are you sure you want to proceed?</p>
+            <div class="modal-buttons">
+                <button id="cancelConfirmBtn" class="modal-btn cancel">Cancel</button>
+                <button id="confirmActionBtn" class="modal-btn save danger">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
