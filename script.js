@@ -11,11 +11,27 @@ class TodoApp {
         this.deleteMode = false;
         this.barChart = null;
         this.pieChart = null;
+        this.touchStartX = 0;
+        this.touchStartY = 0;
+        this.touchEndX = 0;
+        this.touchEndY = 0;
+        this.isScrolling = false;
+        this.selectedTodos = new Set();
+        this.isSelectionMode = false;
+        this.pullToRefreshThreshold = 80;
+        this.longPressThreshold = 500;
+        this.longPressTimer = null;
+        this.currentTouchItem = null;
+        this.swipeThreshold = 50;
+        this.isPulling = false;
+        this.pullStartY = 0;
         
         this.initializeElements();
         this.attachEventListeners();
         this.loadFromStorage();
         this.applyTheme();
+        this.initializeStickyHeader();
+        this.initializeAdvancedGestures();
         this.render();
     }
 
@@ -71,6 +87,18 @@ class TodoApp {
         // Mobile navigation elements
         this.mobileNav = document.querySelector('.mobile-nav');
         this.navItems = document.querySelectorAll('.nav-item');
+        
+        // FAB element
+        this.fab = document.getElementById('fab');
+        this.header = document.querySelector('.header');
+        this.container = document.querySelector('.container');
+        
+        // Gesture elements
+        this.pullToRefresh = document.getElementById('pullToRefresh');
+        this.bulkSelectionBar = document.getElementById('bulkSelectionBar');
+        this.selectedCount = document.getElementById('selectedCount');
+        this.bulkArchiveBtn = document.getElementById('bulkArchiveBtn');
+        this.bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
     }
 
     attachEventListeners() {
@@ -122,9 +150,26 @@ class TodoApp {
         if (this.navItems) {
             this.navItems.forEach(item => {
                 item.addEventListener('click', (e) => {
-                    this.handleMobileNavigation(e.target.closest('.nav-item').dataset.page);
+                    this.handleMobileNavigation(item.dataset.page);
                 });
             });
+        }
+        
+        // FAB event listener
+        if (this.fab) {
+            this.fab.addEventListener('click', () => {
+                this.todoInput.focus();
+                this.todoInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+        }
+        
+        // Bulk selection event listeners
+        if (this.bulkArchiveBtn) {
+            this.bulkArchiveBtn.addEventListener('click', () => this.bulkArchive());
+        }
+        
+        if (this.bulkDeleteBtn) {
+            this.bulkDeleteBtn.addEventListener('click', () => this.bulkDelete());
         }
         
         if (this.themeOptions) {
@@ -166,6 +211,8 @@ class TodoApp {
 
         if (document.querySelectorAll('.color-option')) {
             document.querySelectorAll('.color-option').forEach(option => {
+                // Set the background color from data-color attribute
+                option.style.backgroundColor = option.dataset.color;
                 option.addEventListener('click', (e) => {
                     document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
                     e.target.classList.add('selected');
@@ -290,9 +337,19 @@ class TodoApp {
         this.categoryModal.classList.add('active');
         this.categoryNameInput.value = '';
         this.categoryNameInput.focus();
-        document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
-        document.querySelector('.color-option[data-color="#6366f1"]').classList.add('selected');
-        this.selectedColor = '#6366f1';
+        
+        // Set background colors for all color options
+        document.querySelectorAll('.color-option').forEach(option => {
+            option.style.backgroundColor = option.dataset.color;
+            option.classList.remove('selected');
+        });
+        
+        // Select the first color by default
+        const firstColorOption = document.querySelector('.color-option[data-color="#6366f1"]');
+        if (firstColorOption) {
+            firstColorOption.classList.add('selected');
+            this.selectedColor = '#6366f1';
+        }
     }
 
     closeCategoryModal() {
@@ -409,6 +466,9 @@ class TodoApp {
                 todoItem.dataset.id = todo.id;
                 todoItem.dataset.index = index;
                 todoItem.innerHTML = `
+                    <div class="selection-indicator">✓</div>
+                    <div class="swipe-action delete">🗑️</div>
+                    <div class="swipe-action archive">📦</div>
                     <div class="todo-content">
                         <div class="todo-text">${this.escapeHtml(todo.text)}</div>
                         <div class="todo-meta">
@@ -1148,6 +1208,345 @@ class TodoApp {
     // Detect mobile device
     isMobileDevice() {
         return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+
+    // Sticky header functionality
+    initializeStickyHeader() {
+        if (!this.header || !this.isMobileDevice()) return;
+        
+        let lastScrollY = window.scrollY;
+        let ticking = false;
+        
+        const updateHeader = () => {
+            const scrollY = window.scrollY;
+            
+            if (scrollY > 50) {
+                this.header.classList.add('scrolled');
+                if (this.fab) this.fab.classList.add('scrolled');
+            } else {
+                this.header.classList.remove('scrolled');
+                if (this.fab) this.fab.classList.remove('scrolled');
+            }
+            
+            lastScrollY = scrollY;
+            ticking = false;
+        };
+        
+        const requestTick = () => {
+            if (!ticking) {
+                window.requestAnimationFrame(updateHeader);
+                ticking = true;
+            }
+        };
+        
+        window.addEventListener('scroll', requestTick, { passive: true });
+    }
+
+    // Swipe gesture functionality
+    initializeSwipeGestures() {
+        if (!this.container || !this.isMobileDevice()) return;
+        
+        this.container.addEventListener('touchstart', (e) => {
+            this.touchStartX = e.changedTouches[0].screenX;
+            this.touchStartY = e.changedTouches[0].screenY;
+            this.isScrolling = false;
+        }, { passive: true });
+        
+        this.container.addEventListener('touchmove', (e) => {
+            if (!this.touchStartX || !this.touchStartY) return;
+            
+            const touchEndX = e.changedTouches[0].screenX;
+            const touchEndY = e.changedTouches[0].screenY;
+            
+            const dx = this.touchStartX - touchEndX;
+            const dy = this.touchStartY - touchEndY;
+            
+            // Determine if user is scrolling vertically or swiping horizontally
+            if (Math.abs(dx) > Math.abs(dy)) {
+                this.isScrolling = false;
+            } else {
+                this.isScrolling = true;
+            }
+        }, { passive: true });
+        
+        this.container.addEventListener('touchend', (e) => {
+            if (!this.touchStartX || !this.touchStartY || this.isScrolling) return;
+            
+            const touchEndX = e.changedTouches[0].screenX;
+            const touchEndY = e.changedTouches[0].screenY;
+            
+            const dx = this.touchStartX - touchEndX;
+            const dy = this.touchStartY - touchEndY;
+            
+            // Minimum swipe distance
+            const minSwipeDistance = 50;
+            
+            // Horizontal swipe detection
+            if (Math.abs(dx) > minSwipeDistance && Math.abs(dx) > Math.abs(dy)) {
+                if (dx > 0) {
+                    // Swipe left - navigate to next page
+                    this.handleSwipeLeft();
+                } else {
+                    // Swipe right - navigate to previous page
+                    this.handleSwipeRight();
+                }
+            }
+            
+            // Vertical swipe detection
+            if (Math.abs(dy) > minSwipeDistance && Math.abs(dy) > Math.abs(dx)) {
+                if (dy > 0) {
+                    // Swipe up - could be used for pull-to-refresh
+                    this.handleSwipeUp();
+                } else {
+                    // Swipe down - could be used for pull-to-refresh
+                    this.handleSwipeDown();
+                }
+            }
+            
+            this.touchStartX = 0;
+            this.touchStartY = 0;
+        }, { passive: true });
+    }
+
+    // Swipe handlers
+    handleSwipeLeft() {
+        // Navigate between pages or filter states
+        if (this.currentFilter === 'all') {
+            this.setFilter('active');
+        } else if (this.currentFilter === 'active') {
+            this.setFilter('completed');
+        }
+    }
+
+    handleSwipeRight() {
+        // Navigate between pages or filter states
+        if (this.currentFilter === 'completed') {
+            this.setFilter('active');
+        } else if (this.currentFilter === 'active') {
+            this.setFilter('all');
+        }
+    }
+
+    handleSwipeUp() {
+        // Could implement pull-to-refresh or other gestures
+        console.log('Swipe up detected');
+    }
+
+    handleSwipeDown() {
+        // Could implement pull-to-refresh or other gestures
+        console.log('Swipe down detected');
+    }
+
+    // Advanced Gesture Methods
+    initializeAdvancedGestures() {
+        if (!this.isMobileDevice()) return;
+        
+        // Add touch listeners to todo items
+        this.todoList.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: true });
+        this.todoList.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: true });
+        this.todoList.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: true });
+        
+        // Pull to refresh
+        this.container.addEventListener('touchstart', (e) => this.handlePullStart(e), { passive: true });
+        this.container.addEventListener('touchmove', (e) => this.handlePullMove(e), { passive: true });
+        this.container.addEventListener('touchend', (e) => this.handlePullEnd(e), { passive: true });
+    }
+
+    handleTouchStart(e) {
+        const todoItem = e.target.closest('.todo-item');
+        if (!todoItem) return;
+        
+        this.currentTouchItem = todoItem;
+        this.touchStartX = e.changedTouches[0].screenX;
+        this.touchStartY = e.changedTouches[0].screenY;
+        
+        // Start long press timer
+        this.longPressTimer = setTimeout(() => {
+            this.handleLongPress(todoItem);
+        }, this.longPressThreshold);
+    }
+
+    handleTouchMove(e) {
+        if (!this.currentTouchItem) return;
+        
+        const touchX = e.changedTouches[0].screenX;
+        const touchY = e.changedTouches[0].screenY;
+        const dx = touchX - this.touchStartX;
+        const dy = touchY - this.touchStartY;
+        
+        // Cancel long press if moved too much
+        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+            clearTimeout(this.longPressTimer);
+        }
+        
+        // Handle swipe actions
+        if (Math.abs(dx) > Math.abs(dy)) {
+            e.preventDefault();
+            
+            if (dx > this.swipeThreshold) {
+                this.currentTouchItem.classList.add('swipe-right');
+                this.currentTouchItem.classList.remove('swipe-left');
+            } else if (dx < -this.swipeThreshold) {
+                this.currentTouchItem.classList.add('swipe-left');
+                this.currentTouchItem.classList.remove('swipe-right');
+            } else {
+                this.currentTouchItem.classList.remove('swipe-left', 'swipe-right');
+            }
+        }
+    }
+
+    handleTouchEnd(e) {
+        if (!this.currentTouchItem) return;
+        
+        clearTimeout(this.longPressTimer);
+        
+        const touchX = e.changedTouches[0].screenX;
+        const dx = touchX - this.touchStartX;
+        
+        // Execute swipe action
+        if (Math.abs(dx) > this.swipeThreshold) {
+            const todoId = this.currentTouchItem.dataset.id;
+            if (dx > 0) {
+                this.archiveTodo(todoId);
+            } else {
+                this.deleteTodo(todoId);
+            }
+        }
+        
+        // Reset swipe state
+        setTimeout(() => {
+            if (this.currentTouchItem) {
+                this.currentTouchItem.classList.remove('swipe-left', 'swipe-right');
+            }
+        }, 300);
+        
+        this.currentTouchItem = null;
+    }
+
+    handleLongPress(todoItem) {
+        if (this.isSelectionMode) {
+            this.toggleTodoSelection(todoItem);
+        } else {
+            this.enterSelectionMode(todoItem);
+        }
+    }
+
+    enterSelectionMode(firstTodo) {
+        this.isSelectionMode = true;
+        this.selectedTodos.clear();
+        this.toggleTodoSelection(firstTodo);
+        this.updateBulkSelectionBar();
+    }
+
+    toggleTodoSelection(todoItem) {
+        const todoId = todoItem.dataset.id;
+        
+        if (this.selectedTodos.has(todoId)) {
+            this.selectedTodos.delete(todoId);
+            todoItem.classList.remove('selected');
+        } else {
+            this.selectedTodos.add(todoId);
+            todoItem.classList.add('selected');
+        }
+        
+        this.updateBulkSelectionBar();
+    }
+
+    updateBulkSelectionBar() {
+        const count = this.selectedTodos.size;
+        this.selectedCount.textContent = count;
+        
+        if (count > 0) {
+            this.bulkSelectionBar.classList.add('active');
+        } else {
+            this.bulkSelectionBar.classList.remove('active');
+            this.exitSelectionMode();
+        }
+    }
+
+    exitSelectionMode() {
+        this.isSelectionMode = false;
+        this.selectedTodos.clear();
+        document.querySelectorAll('.todo-item.selected').forEach(item => {
+            item.classList.remove('selected');
+        });
+        this.bulkSelectionBar.classList.remove('active');
+    }
+
+    bulkArchive() {
+        const todosToArchive = Array.from(this.selectedTodos);
+        todosToArchive.forEach(todoId => {
+            this.archiveTodo(todoId);
+        });
+        this.exitSelectionMode();
+    }
+
+    bulkDelete() {
+        if (this.selectedTodos.size === 0) return;
+        
+        this.confirmMessage.textContent = `Delete ${this.selectedTodos.size} selected todo${this.selectedTodos.size > 1 ? 's' : ''}?`;
+        this.confirmModal.classList.add('active');
+        
+        const handleConfirm = () => {
+            const todosToDelete = Array.from(this.selectedTodos);
+            todosToDelete.forEach(todoId => {
+                this.deleteTodo(todoId);
+            });
+            this.exitSelectionMode();
+            this.confirmModal.classList.remove('active');
+            this.confirmActionBtn.removeEventListener('click', handleConfirm);
+        };
+        
+        this.confirmActionBtn.addEventListener('click', handleConfirm);
+    }
+
+    // Pull to Refresh Methods
+    handlePullStart(e) {
+        if (window.scrollY > 0) return;
+        
+        this.pullStartY = e.changedTouches[0].screenY;
+        this.isPulling = true;
+    }
+
+    handlePullMove(e) {
+        if (!this.isPulling || window.scrollY > 0) return;
+        
+        const currentY = e.changedTouches[0].screenY;
+        const pullDistance = currentY - this.pullStartY;
+        
+        if (pullDistance > 0) {
+            e.preventDefault();
+            
+            if (pullDistance > this.pullToRefreshThreshold) {
+                this.pullToRefresh.classList.add('pulling');
+            } else {
+                this.pullToRefresh.classList.remove('pulling');
+            }
+        }
+    }
+
+    handlePullEnd(e) {
+        if (!this.isPulling) return;
+        
+        const currentY = e.changedTouches[0].screenY;
+        const pullDistance = currentY - this.pullStartY;
+        
+        if (pullDistance > this.pullToRefreshThreshold) {
+            this.performRefresh();
+        }
+        
+        this.pullToRefresh.classList.remove('pulling');
+        this.isPulling = false;
+    }
+
+    performRefresh() {
+        this.pullToRefresh.classList.add('refreshing');
+        
+        // Simulate refresh - in real app, this would fetch new data
+        setTimeout(() => {
+            this.render();
+            this.pullToRefresh.classList.remove('refreshing');
+        }, 1500);
     }
 }
 
