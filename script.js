@@ -112,12 +112,12 @@ class TodoApp {
 
         // Todo list event listener (moved outside render to prevent duplicate listeners)
         this.todoList.addEventListener('click', (e) => {
-            if (e.target.classList.contains('todo-checkbox')) {
-                this.toggleTodo(e.target.dataset.id);
-            } else if (e.target.closest('.delete-btn')) {
+            // Only handle delete button clicks here
+            if (e.target.closest('.delete-btn')) {
                 const id = e.target.closest('.delete-btn').dataset.id;
                 this.deleteTodo(id);
             }
+            // Todo completion is now handled in the drag listeners
         });
     }
 
@@ -289,7 +289,6 @@ class TodoApp {
                 todoItem.dataset.id = todo.id;
                 todoItem.dataset.index = index;
                 todoItem.innerHTML = `
-                    <div class="todo-checkbox ${todo.completed ? 'checked' : ''}" data-id="${todo.id}"></div>
                     <div class="todo-content">
                         <div class="todo-text">${this.escapeHtml(todo.text)}</div>
                         <div class="todo-meta">
@@ -320,15 +319,44 @@ class TodoApp {
     }
 
     addDragAndDropListeners(todoItem) {
-        let draggedElement = null;
-        let draggedIndex = null;
+        let dragStartTime = 0;
+        let dragTimer = null;
+        let isDragging = false;
+        let hasDragged = false;
+
+        todoItem.addEventListener('mousedown', (e) => {
+            dragStartTime = Date.now();
+            hasDragged = false;
+            dragTimer = setTimeout(() => {
+                isDragging = true;
+            }, 200); // Start drag after 200ms hold
+        });
+
+        todoItem.addEventListener('mouseup', (e) => {
+            const dragEndTime = Date.now();
+            const dragDuration = dragEndTime - dragStartTime;
+            
+            clearTimeout(dragTimer);
+            
+            // Only toggle if it was a quick click and no dragging occurred
+            if (!isDragging && !hasDragged && dragDuration < 200) {
+                // This was a click, not a drag
+                this.toggleTodo(todoItem.dataset.id);
+            }
+            
+            isDragging = false;
+            hasDragged = false;
+        });
 
         todoItem.addEventListener('dragstart', (e) => {
-            draggedElement = todoItem;
-            draggedIndex = parseInt(todoItem.dataset.index);
+            isDragging = true;
+            hasDragged = true;
             todoItem.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/html', todoItem.innerHTML);
+            // Store dragged info globally for access in drop handler
+            window.currentDraggedElement = todoItem;
+            window.currentDraggedIndex = parseInt(todoItem.dataset.index);
         });
 
         todoItem.addEventListener('dragend', (e) => {
@@ -337,6 +365,11 @@ class TodoApp {
             document.querySelectorAll('.drag-over').forEach(item => {
                 item.classList.remove('drag-over');
             });
+            // Clear global drag state
+            window.currentDraggedElement = null;
+            window.currentDraggedIndex = null;
+            isDragging = false;
+            hasDragged = true; // Mark that dragging occurred
         });
 
         todoItem.addEventListener('dragover', (e) => {
@@ -355,9 +388,10 @@ class TodoApp {
             e.preventDefault();
             todoItem.classList.remove('drag-over');
             
-            if (draggedElement && draggedElement !== todoItem) {
+            // Use global drag state instead of local variables
+            if (window.currentDraggedElement && window.currentDraggedElement !== todoItem) {
                 const dropIndex = parseInt(todoItem.dataset.index);
-                this.reorderTodos(draggedIndex, dropIndex);
+                this.reorderTodos(window.currentDraggedIndex, dropIndex);
             }
         });
     }
@@ -394,6 +428,9 @@ class TodoApp {
         
         // Insert at new position
         this.todos.splice(toActualIndex, 0, draggedTodo);
+        
+        // Don't sort - maintain the manual order
+        // this.sortTodos();
         
         this.saveToStorage();
         this.render();
