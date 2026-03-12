@@ -67,6 +67,10 @@ class TodoApp {
         this.dashboardCategoriesCount = document.getElementById('dashboardCategoriesCount');
         this.barChartCanvas = document.getElementById('barChart');
         this.pieChartCanvas = document.getElementById('pieChart');
+        
+        // Mobile navigation elements
+        this.mobileNav = document.querySelector('.mobile-nav');
+        this.navItems = document.querySelectorAll('.nav-item');
     }
 
     attachEventListeners() {
@@ -113,6 +117,15 @@ class TodoApp {
         // Dashboard event listeners
         if (this.dashboardBtn) this.dashboardBtn.addEventListener('click', () => this.openDashboard());
         if (this.backToMainBtn) this.backToMainBtn.addEventListener('click', () => this.closeDashboard());
+        
+        // Mobile navigation event listeners
+        if (this.navItems) {
+            this.navItems.forEach(item => {
+                item.addEventListener('click', (e) => {
+                    this.handleMobileNavigation(e.target.closest('.nav-item').dataset.page);
+                });
+            });
+        }
         
         if (this.themeOptions) {
             this.themeOptions.forEach(option => {
@@ -439,16 +452,87 @@ class TodoApp {
         let dragTimer = null;
         let isDragging = false;
         let hasDragged = false;
+        let touchStartY = 0;
+        let touchStartX = 0;
+        let touchItem = null;
 
+        // Touch events for mobile
+        todoItem.addEventListener('touchstart', (e) => {
+            if (this.deleteMode) return;
+            
+            const touch = e.touches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+            dragStartTime = Date.now();
+            hasDragged = false;
+            touchItem = todoItem;
+            
+            dragTimer = setTimeout(() => {
+                isDragging = true;
+                todoItem.classList.add('dragging');
+            }, 200);
+            
+            e.preventDefault();
+        }, { passive: false });
+
+        todoItem.addEventListener('touchmove', (e) => {
+            if (!touchItem || this.deleteMode) return;
+            
+            const touch = e.touches[0];
+            const deltaX = touch.clientX - touchStartX;
+            const deltaY = touch.clientY - touchStartY;
+            
+            // Check if it's actually a drag (not just a tap)
+            if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+                hasDragged = true;
+                
+                if (isDragging) {
+                    // Visual feedback during drag
+                    todoItem.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                }
+            }
+            
+            e.preventDefault();
+        }, { passive: false });
+
+        todoItem.addEventListener('touchend', (e) => {
+            if (!touchItem || this.deleteMode) return;
+            
+            clearTimeout(dragTimer);
+            
+            const dragEndTime = Date.now();
+            const dragDuration = dragEndTime - dragStartTime;
+            
+            // Reset visual state
+            todoItem.style.transform = '';
+            todoItem.classList.remove('dragging');
+            
+            // Only toggle if it was a quick tap and no dragging occurred
+            if (!isDragging && !hasDragged && dragDuration < 200) {
+                this.toggleTodo(todoItem.dataset.id);
+            }
+            
+            isDragging = false;
+            hasDragged = false;
+            touchItem = null;
+            
+            e.preventDefault();
+        }, { passive: false });
+
+        // Mouse events for desktop (keep existing functionality)
         todoItem.addEventListener('mousedown', (e) => {
+            if (this.deleteMode) return;
+            
             dragStartTime = Date.now();
             hasDragged = false;
             dragTimer = setTimeout(() => {
                 isDragging = true;
-            }, 200); // Start drag after 200ms hold
+            }, 200);
         });
 
         todoItem.addEventListener('mouseup', (e) => {
+            if (this.deleteMode) return;
+            
             const dragEndTime = Date.now();
             const dragDuration = dragEndTime - dragStartTime;
             
@@ -456,7 +540,6 @@ class TodoApp {
             
             // Only toggle if it was a quick click and no dragging occurred
             if (!isDragging && !hasDragged && dragDuration < 200) {
-                // This was a click, not a drag
                 this.toggleTodo(todoItem.dataset.id);
             }
             
@@ -465,30 +548,33 @@ class TodoApp {
         });
 
         todoItem.addEventListener('dragstart', (e) => {
+            if (this.deleteMode) return;
+            
             isDragging = true;
             hasDragged = true;
             todoItem.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/html', todoItem.innerHTML);
-            // Store dragged info globally for access in drop handler
             window.currentDraggedElement = todoItem;
             window.currentDraggedIndex = parseInt(todoItem.dataset.index);
         });
 
         todoItem.addEventListener('dragend', (e) => {
+            if (this.deleteMode) return;
+            
             todoItem.classList.remove('dragging');
-            // Remove all drag-over classes
             document.querySelectorAll('.drag-over').forEach(item => {
                 item.classList.remove('drag-over');
             });
-            // Clear global drag state
             window.currentDraggedElement = null;
             window.currentDraggedIndex = null;
             isDragging = false;
-            hasDragged = true; // Mark that dragging occurred
+            hasDragged = true;
         });
 
         todoItem.addEventListener('dragover', (e) => {
+            if (this.deleteMode) return;
+            
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
             if (!todoItem.classList.contains('dragging')) {
@@ -497,14 +583,17 @@ class TodoApp {
         });
 
         todoItem.addEventListener('dragleave', (e) => {
+            if (this.deleteMode) return;
+            
             todoItem.classList.remove('drag-over');
         });
 
         todoItem.addEventListener('drop', (e) => {
+            if (this.deleteMode) return;
+            
             e.preventDefault();
             todoItem.classList.remove('drag-over');
             
-            // Use global drag state instead of local variables
             if (window.currentDraggedElement && window.currentDraggedElement !== todoItem) {
                 const dropIndex = parseInt(todoItem.dataset.index);
                 this.reorderTodos(window.currentDraggedIndex, dropIndex);
@@ -1021,9 +1110,44 @@ class TodoApp {
                             }
                         }
                     }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'nearest'
                 }
             }
         });
+    }
+
+    // Mobile navigation methods
+    handleMobileNavigation(page) {
+        // Remove active class from all nav items
+        this.navItems.forEach(item => item.classList.remove('active'));
+        
+        // Add active class to selected nav item
+        const activeItem = document.querySelector(`[data-page="${page}"]`);
+        if (activeItem) {
+            activeItem.classList.add('active');
+        }
+        
+        // Handle page navigation
+        switch(page) {
+            case 'todos':
+                this.closeDashboard();
+                this.closeSettings();
+                break;
+            case 'dashboard':
+                this.openDashboard();
+                break;
+            case 'settings':
+                this.openSettings();
+                break;
+        }
+    }
+
+    // Detect mobile device
+    isMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     }
 }
 
